@@ -39,19 +39,64 @@ def prettyPrintTransaction(transaction):
 	print("Target:", transaction.target)
 
 def prettyPrintUser(user, amount):
-	print("Full Name: %s, username: %s, Amount: %.2f" % (user.first_name + " " + user.last_name, user.username, amount))
-
-if __name__ == '__main__':
-	tracker = DuesTracker()
-	transactions = tracker.getTransactions()
-	filtered_transactions = [transaction for transaction in transactions if tracker.dues_indicator in transaction.note.lower() 
-								and transaction.status == "settled" and transaction.target.username == tracker.me.username]
-	dues_dict = dict()
+	return "Full Name: %s, username: %s, Amount: %.2f" % (user.first_name + " " + user.last_name, user.username, amount)
 	
-	for transaction in filtered_transactions:
-		dues_dict[transaction.actor.id] = dues_dict.get(transaction.actor.id, 0) + float(transaction.amount)
+def buildHtml(user_tuples, tracker):
+	ret = "<h1>CSA Transactions with " + tracker.dues_indicator + "</h1>"
+	ret += "<table border=1 rules=all><tr><th>Full Name</th><th>Venmo Username</th><th>Amount Paid</th></tr>"
+	for user, amount in user_tuples:
+		ret += "<tr>"
+		ret += "<td>"
+		ret += user.first_name + " " + user.last_name
+		ret += "</td>"
+		ret += "<td>"
+		ret += user.username
+		ret += "</td>"
+		ret += "<td>"
+		ret += "%.2f"%amount
+		ret += "</td>"
+		ret += "</tr>"
+	ret += "</table>"
+	return ret
 
-	print("People who have paid at least some dues:")
-	for user_id, amount in dues_dict.items():
-		user = tracker.getUser(user_id)
-		prettyPrintUser(user, amount)
+
+def lambda_handler(event, context):
+    tracker = DuesTracker()
+    transactions = tracker.getTransactions()
+    filtered_transactions = [transaction for transaction in transactions if tracker.dues_indicator in transaction.note.lower() and transaction.status == "settled" and transaction.target.username == tracker.me.username]
+    dues_dict = dict()
+    for transaction in filtered_transactions:
+    	dues_dict[transaction.actor.id] = dues_dict.get(transaction.actor.id, 0) + float(transaction.amount)
+    # ret = "People who have paid at least some dues:<br>"
+    user_tuples = []
+    for user_id, amount in dues_dict.items():
+    	user = tracker.getUser(user_id)
+    	pair = (user, amount)
+    	user_tuples.append(pair)
+    user_tuples = sorted(user_tuples, key=lambda pair: pair[0].first_name)
+    html = buildHtml(user_tuples, tracker)
+    return {
+        'statusCode': 200,
+        'body': html,
+        "headers": {
+	        'Content-Type': 'text/html',
+	    }
+    }
+
+# if __name__ == '__main__':
+# 	tracker = DuesTracker()
+# 	transactions = tracker.getTransactions()
+# 	filtered_transactions = [transaction for transaction in transactions if tracker.dues_indicator in transaction.note.lower() 
+# 								and transaction.status == "settled" and transaction.target.username == tracker.me.username]
+# 	dues_dict = dict()
+	
+# 	for transaction in filtered_transactions:
+# 		dues_dict[transaction.actor.id] = dues_dict.get(transaction.actor.id, 0) + float(transaction.amount)
+
+# 	print("People who have paid at least some dues:")
+# 	for user_id, amount in dues_dict.items():
+# 		user = tracker.getUser(user_id)
+# 		prettyPrintUser(user, amount)
+
+
+
