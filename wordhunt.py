@@ -1,7 +1,9 @@
-import enchant
 from collections import deque
+from time import perf_counter
+import sys
 
-global checker
+global wordlist
+global prefix
 
 class color:
    PURPLE = '\033[95m'
@@ -31,11 +33,12 @@ class Node:
 		self.depth = depth
 
 	def getWord(self, graph):
-		word = "".join([graph.letterMap[parent].letter for parent in self.parents])
+		# word = "".join([graph.letterMap[parent].letter for parent in self.parents])
 		# for parent in self.parents:
 		# 	word += graph.letterMap[parent].letter
-		word += graph.letterMap[self.id].letter
-		return word
+		# word += graph.letterMap[self.id].letter
+		# return word
+		return "".join([graph.letterMap[parent].letter for parent in self.parents]) + graph.letterMap[self.id].letter
 
 class Graph:
 	def __init__(self):
@@ -51,7 +54,10 @@ class Graph:
 			letter.letter = letters[i]
 
 	def findWords(self, length):
-		global checker
+		global wordlist
+		global prefix
+		global benchmark
+
 		final_words = set()
 		# fringe = deque()
 		# for i in range(self.size**2):
@@ -60,24 +66,30 @@ class Graph:
 
 		while fringe:
 			node = fringe.popleft()
+			word = node.getWord(self)
+			if len(word) > 1 and word not in prefix:
+				continue
 			if node.depth >= length:
-				word = node.getWord(self)
-				if word not in final_words and checker.check(word):
-					print("----------------------------------------------------------------")
-					print(color.GREEN + word.upper() + color.END)
-					for i in range(self.size):
-						ids = list(range(i*self.size, i*self.size + self.size))
-						ret = ""
-						for id_ in ids:
-							if id_ == node.parents[0]:
-								ret += color.GREEN + self.letters[id_].letter.upper() + color.END + " "
-							elif id_ == node.id:
-								ret += color.RED + self.letters[id_].letter.upper() + color.END + " "
-							elif id_ in node.parents:
-								ret += color.YELLOW + self.letters[id_].letter.upper() + color.END + " "
-							else:
-								ret += self.letters[id_].letter.upper() + " "
-						print(ret)
+				# word = node.getWord(self)
+				# if word not in final_words and wordlist.check(word):
+				if word not in final_words and word in wordlist:
+					if not benchmark:
+						print("----------------------------------------------------------------")
+						print(color.GREEN + word.upper() + color.END)
+						for i in range(self.size):
+							ids = list(range(i*self.size, i*self.size + self.size))
+							ret = ""
+							for id_ in ids:
+								if id_ == node.parents[0]:
+									ret += color.GREEN + self.letters[id_].letter.upper() + color.END + " "
+								elif id_ == node.id:
+									ret += color.RED + self.letters[id_].letter.upper() + color.END + " "
+								elif id_ in node.parents:
+									ret += color.YELLOW + self.letters[id_].letter.upper() + color.END + " "
+								else:
+									ret += self.letters[id_].letter.upper() + " "
+							print(ret)
+						input()
 					final_words.add(word)
 				continue
 			letter = self.letterMap[node.id]
@@ -86,7 +98,7 @@ class Graph:
 				if neighbor.id in node.parents:
 					continue
 				fringe.appendleft(Node(neighbor.id, node.parents + [node.id], node.depth + 1))
-		print("----------------------------------------------------------------")
+		return final_words
 
 
 class Graph4x4(Graph):
@@ -154,9 +166,31 @@ class Graph5x5(Graph):
 				letter.addNeighbor(self.letterMap[neighbor_id])
 
 def main():
-	global checker
-	checker = enchant.Dict("en_US")
+	global wordlist
+	global prefix
+	global benchmark
+
+	if len(sys.argv) > 1 and "time" in sys.argv[1]:
+		benchmark = True
+	else:
+		benchmark = False
+
+	wordlist = set()
+	prefix = set()
+	with open("dict.txt", "r") as f:
+		for line in f:
+			word = line.strip().lower()
+			if len(word) >= 3:
+				wordlist.add(word)
+			for p in [word[:i] for i in range(2, len(word))]:
+				prefix.add(p)
+
 	puzzle_input = input("Enter puzzle input:").strip().lower()
+	# puzzle_input = "qwertyuiopasdfghjklzxcvbn"
+
+	if not puzzle_input.isalpha():
+		print("Only alphabetic characters are allowed")
+		exit()
 
 	if len(puzzle_input) == 16:
 		print("Using 4x4 board")
@@ -172,41 +206,20 @@ def main():
 
 	graph.addPuzzle(puzzle_input)
 
-	try:
-		words9 = graph.findWords(9)
-	except KeyboardInterrupt:
-		print('Interrupted 9\n')
-	input("see 8?")
-	try:
-		words8 = graph.findWords(8)
-	except KeyboardInterrupt:
-		print('Interrupted 8\n')
-	input("see 7?")
-	try:
-		words7 = graph.findWords(7)
-	except KeyboardInterrupt:
-		print('Interrupted 7\n')
-	input("see 6?")
-	try:
-		words6 = graph.findWords(6)
-	except KeyboardInterrupt:
-		print('Interrupted 6\n')
-	input("see 5?")
-	try:
-		words5 = graph.findWords(5)
-	except KeyboardInterrupt:
-		print('Interrupted 5\n')
-	input("see 4?")
-	try:
-		words4 = graph.findWords(4)
-	except KeyboardInterrupt:
-		print('Interrupted 4\n')
-	input("see 3?")
-	try:
-		words3 = graph.findWords(3)
-	except KeyboardInterrupt:
-		print('Interrupted 3\n')
+	word_count = 0
+	t0 = perf_counter()
 
+	try:
+		for i in reversed(range(3,12)):
+			word_count += len(graph.findWords(i))
+	except KeyboardInterrupt:
+		print('Manually stopped.\n')
+
+	if benchmark:
+		t1 = perf_counter()
+		print("Took %.3f ms to find %d words for input \n%s" % 
+				((t1 - t0) * 1000, word_count, 
+					'\n'.join(s.replace("", " ")[1: -1] for s in list(map(''.join, zip(*[iter(puzzle_input.upper())]*graph.size))))))
 
 if __name__ == '__main__':
 	main()
