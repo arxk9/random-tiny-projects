@@ -4,6 +4,8 @@ import sys
 
 global wordlist
 global prefix
+global benchmark
+global listing
 
 class color:
    PURPLE = '\033[95m'
@@ -33,11 +35,6 @@ class Node:
 		self.depth = depth
 
 	def getWord(self, graph):
-		# word = "".join([graph.letterMap[parent].letter for parent in self.parents])
-		# for parent in self.parents:
-		# 	word += graph.letterMap[parent].letter
-		# word += graph.letterMap[self.id].letter
-		# return word
 		return "".join([graph.letterMap[parent].letter for parent in self.parents]) + graph.letterMap[self.id].letter
 
 class Graph:
@@ -57,23 +54,19 @@ class Graph:
 		global wordlist
 		global prefix
 		global benchmark
+		global listing
 
 		final_words = set()
-		# fringe = deque()
-		# for i in range(self.size**2):
-		# 	fringe.append(Node(i, [], 1))
 		fringe = deque([Node(i, [], 1) for i in range(self.size ** 2)])
 
 		while fringe:
 			node = fringe.popleft()
 			word = node.getWord(self)
-			if len(word) > 1 and word not in prefix:
+			if len(word) > 1 and node.depth < length and word not in prefix:
 				continue
 			if node.depth >= length:
-				# word = node.getWord(self)
-				# if word not in final_words and wordlist.check(word):
 				if word not in final_words and word in wordlist:
-					if not benchmark:
+					if not benchmark and not listing:
 						print("----------------------------------------------------------------")
 						print(color.GREEN + word.upper() + color.END)
 						for i in range(self.size):
@@ -169,11 +162,17 @@ def main():
 	global wordlist
 	global prefix
 	global benchmark
+	global listing
 
-	if len(sys.argv) > 1 and "time" in sys.argv[1]:
-		benchmark = True
-	else:
-		benchmark = False
+	benchmark = False
+	listing = False
+
+	if len(sys.argv) > 1:
+		if "time" in sys.argv[1]:
+			benchmark = True
+		elif "list" in sys.argv[1]:
+			listing = True
+
 
 	wordlist = set()
 	prefix = set()
@@ -208,12 +207,34 @@ def main():
 
 	word_count = 0
 	t0 = perf_counter()
+	results = []
 
 	try:
 		for i in reversed(range(3,12)):
-			word_count += len(graph.findWords(i))
+			words = graph.findWords(i)
+			word_count += len(words)
+			if listing:
+				for w in words:
+					results.append(w)
 	except KeyboardInterrupt:
 		print('Manually stopped.\n')
+		exit()
+
+	if listing:
+		print("TOTAL: %d words\n" % len(results))
+		score = 0
+		for i, w in enumerate(results):
+			if len(w) == 3:
+				val = 100
+			elif len(w) == 4:
+				val = 400
+			elif len(w) == 5:
+				val = 800
+			else:
+				val = 1400 + (len(w) - 6) * 400
+			print("%d.\t%s%s%d" % (i + 1, w, " " * (16 - len(w)), val))
+			score += val
+		print("Maximum possible score: %d" % score)
 
 	if benchmark:
 		t1 = perf_counter()
