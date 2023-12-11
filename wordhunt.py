@@ -210,7 +210,7 @@ def main():
 	results = []
 
 	try:
-		for i in reversed(range(3,12)):
+		for i in reversed(range(3,len(puzzle_input)+1)):
 			words = graph.findWords(i)
 			word_count += len(words)
 			if listing:
